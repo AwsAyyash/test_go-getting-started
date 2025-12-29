@@ -1,21 +1,12 @@
-FROM heroku/heroku:24-build as build
-
-COPY . /app
+FROM golang:1.21-alpine AS build
 WORKDIR /app
+COPY go.* ./
+RUN go mod download
+COPY . .
+RUN go build -o server .
 
-# Setup buildpack
-RUN mkdir -p /tmp/buildpack/heroku/go /tmp/build_cache /tmp/env
-RUN curl https://buildpack-registry.s3.amazonaws.com/buildpacks/heroku/go.tgz | tar xz -C /tmp/buildpack/heroku/go
-
-#Execute Buildpack
-RUN STACK=heroku-24 /tmp/buildpack/heroku/go/bin/compile /app /tmp/build_cache /tmp/env
-
-# Prepare final, minimal image
-FROM heroku/heroku:24
-
-COPY --from=build /app /app
-ENV HOME /app
-WORKDIR /app
-RUN useradd -m heroku
-USER heroku
-CMD /app/bin/go-getting-started
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=build /app/server .
+CMD ["./server"]
